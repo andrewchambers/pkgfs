@@ -10,11 +10,13 @@
 
 #define FUSE_USE_VERSION 31
 #define _GNU_SOURCE
-#include <fuse.h>
+#include "util.h"
 #include <assert.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <ftw.h>
+#include <fuse.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,8 +25,6 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <unistd.h>
-#include <ftw.h>
-#include "util.h"
 
 struct idxent {
   enum {
@@ -78,7 +78,7 @@ static int pkgfs_access(const char *path, int mask) {
   int res;
   struct hashtablekey k;
   struct idxent *ent;
-  
+
   htabkey(&k, path, strlen(path));
   ent = htabget(idx_htab, &k);
   if (ent) {
@@ -95,7 +95,7 @@ static int pkgfs_readlink(const char *path, char *buf, size_t size) {
   int res;
   struct hashtablekey k;
   struct idxent *ent;
-  
+
   htabkey(&k, path, strlen(path));
   ent = htabget(idx_htab, &k);
   if (ent) {
@@ -131,7 +131,7 @@ static int pkgfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                          enum fuse_readdir_flags flags) {
   struct idxent *ent = get_dirent(fi);
   for (size_t i = 0; i < ent->dir_ents_len; i++) {
-    if (filler(buf, strrchr(ent->dir_ents[i]->true_path, '/')+1, NULL, 0, 0))
+    if (filler(buf, strrchr(ent->dir_ents[i]->true_path, '/') + 1, NULL, 0, 0))
       break;
   }
   return 0;
@@ -244,21 +244,20 @@ static const struct fuse_operations pkgfs_oper = {
     .lseek = pkgfs_lseek,
 };
 
-
 static char *root = NULL;
 static size_t root_len = 0;
 
-static int add_to_index_nftw(const char *fpath, const struct stat *sb, int tflag,
-                        struct FTW *ftwbuf) {
+static int add_to_index_nftw(const char *fpath, const struct stat *sb,
+                             int tflag, struct FTW *ftwbuf) {
   // Add the dirent to the index.
   struct idxent *current_ent;
 
   switch (tflag) {
   case FTW_F:
-  case FTW_SL: 
+  case FTW_SL:
   case FTW_D: {
     struct hashtablekey k;
-    const char *kstr = fpath+root_len;
+    const char *kstr = fpath + root_len;
     size_t klen = strlen(kstr);
     if (klen == 0) {
       kstr = "/";
@@ -294,8 +293,8 @@ static int add_to_index_nftw(const char *fpath, const struct stat *sb, int tflag
   }
 
   if (strcmp(fpath, root) != 0) {
-    const char *fname = fpath+ftwbuf->base;
-    const char *parent = fpath+root_len;
+    const char *fname = fpath + ftwbuf->base;
+    const char *parent = fpath + root_len;
     const char *endslash = strrchr(parent, '/');
     assert(endslash != 0);
     struct hashtablekey k;
@@ -307,12 +306,12 @@ static int add_to_index_nftw(const char *fpath, const struct stat *sb, int tflag
     htabkey(&k, parent, parent_len);
     struct idxent *ent = htabget(idx_htab, &k);
     assert(ent != 0);
-    
+
     if (ent->kind == IDX_DIR) {
       int exists = 0;
 
       for (size_t i = 0; i < ent->dir_ents_len; i++) {
-        if (strcmp(fname, strrchr(ent->dir_ents[i]->true_path, '/')+1) == 0) {
+        if (strcmp(fname, strrchr(ent->dir_ents[i]->true_path, '/') + 1) == 0) {
           exists = 1;
           break;
         }
@@ -324,7 +323,8 @@ static int add_to_index_nftw(const char *fpath, const struct stat *sb, int tflag
         } else if (ent->dir_ents_cap == ent->dir_ents_len) {
           ent->dir_ents_cap = ent->dir_ents_cap * 2;
         }
-        ent->dir_ents = xreallocarray(ent->dir_ents, ent->dir_ents_cap, sizeof(char *));
+        ent->dir_ents =
+            xreallocarray(ent->dir_ents, ent->dir_ents_cap, sizeof(char *));
         ent->dir_ents[ent->dir_ents_len++] = current_ent;
       }
     }
@@ -334,24 +334,24 @@ static int add_to_index_nftw(const char *fpath, const struct stat *sb, int tflag
 }
 
 static int isdir(const char *path) {
-   struct stat statbuf;
-   if (stat(path, &statbuf) != 0) {
-       fprintf(stderr, "pkgfs: stat of %s failed: %s\n", path, strerror(errno));
-       exit(1);
-   }
-   return S_ISDIR(statbuf.st_mode);
+  struct stat statbuf;
+  if (stat(path, &statbuf) != 0) {
+    fprintf(stderr, "pkgfs: stat of %s failed: %s\n", path, strerror(errno));
+    exit(1);
+  }
+  return S_ISDIR(statbuf.st_mode);
 }
 
 static void add_to_index(char *path) {
   fprintf(stderr, "pkgfs: adding %s to union index...\n", path);
-  
-  if(!isdir(path)) {
+
+  if (!isdir(path)) {
     fprintf(stderr, "pkgfs: union point %s is not a directory\n", path);
     exit(1);
   }
 
   root = realpath(path, NULL);
-  if(!root) {
+  if (!root) {
     perror("pkgfs: realpath");
     exit(1);
   }
@@ -368,9 +368,7 @@ static void add_to_index(char *path) {
   root_len = 0;
 }
 
-void del_idx_key(struct hashtablekey *k) {
-  free((void*)k->str);
-}
+void del_idx_key(struct hashtablekey *k) { free((void *)k->str); }
 
 void del_idx_ent(void *p) {
   struct idxent *ent = p;
@@ -389,8 +387,8 @@ static struct options {
 
 #define OPTION(t, p)                                                           \
   { t, offsetof(struct options, p), 1 }
-static const struct fuse_opt option_spec[] = {
-    OPTION("--help", show_help), FUSE_OPT_END};
+static const struct fuse_opt option_spec[] = {OPTION("--help", show_help),
+                                              FUSE_OPT_END};
 
 static void show_help(const char *progname) {
   printf("usage: %s [options] unions... <mountpoint>\n\n", progname);
@@ -398,9 +396,9 @@ static void show_help(const char *progname) {
          "\n");
 }
 
-
 static char **prev_arg = NULL;
-int pkgfs_opt_proc(void *data, const char *arg, int key, struct fuse_args *outargs) {
+int pkgfs_opt_proc(void *data, const char *arg, int key,
+                   struct fuse_args *outargs) {
   if (key == FUSE_OPT_KEY_NONOPT) {
     if (*prev_arg) {
       add_to_index(*prev_arg);
@@ -410,8 +408,8 @@ int pkgfs_opt_proc(void *data, const char *arg, int key, struct fuse_args *outar
     return 0;
   }
   return 1;
- }
- 
+}
+
 int main(int argc, char *argv[]) {
   int ret;
   struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
@@ -439,11 +437,11 @@ int main(int argc, char *argv[]) {
     assert(fuse_opt_add_arg(&args, "--help") == 0);
     args.argv[0][0] = '\0';
   }
-  
+
   fprintf(stderr, "pkgfs: starting fuse server...\n");
   ret = fuse_main(args.argc, args.argv, &pkgfs_oper, NULL);
   fuse_opt_free_args(&args);
-  
+
   if (getenv("PKGFS_CLEANUP"))
     delhtab(idx_htab, del_idx_key, del_idx_ent);
 

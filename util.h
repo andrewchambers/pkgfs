@@ -14,8 +14,8 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 */
 
-#include <stdint.h>  /* for uint64_t */
 #include <stddef.h>
+#include <stdint.h>
 
 struct hashtablekey {
   uint64_t hash;
@@ -31,7 +31,6 @@ void **htabput(struct hashtable *, struct hashtablekey *);
 void *htabget(struct hashtable *, struct hashtablekey *);
 
 uint64_t murmurhash64a(const void *, size_t);
-
 
 void *xmalloc(size_t n);
 void *xreallocarray(void *p, size_t n, size_t m);

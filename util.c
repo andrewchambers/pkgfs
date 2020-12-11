@@ -86,7 +86,8 @@ struct hashtable *mkhtab(size_t cap) {
   return h;
 }
 
-void delhtab(struct hashtable *h, void delk(struct hashtablekey *), void del(void *)) {
+void delhtab(struct hashtable *h, void delk(struct hashtablekey *),
+             void del(void *)) {
   size_t i;
 
   if (!h)
