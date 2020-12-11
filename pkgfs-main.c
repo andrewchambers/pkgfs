@@ -147,7 +147,7 @@ static int pkgfs_open(const char *path, struct fuse_file_info *fi) {
   struct hashtablekey k;
   struct idxent *ent;
 
-  if (fi->flags & (O_CREAT|O_APPEND|O_TRUNC|O_TMPFILE))
+  if (fi->flags & (O_WRONLY|O_RDWR|O_CREAT|O_APPEND|O_TRUNC|O_TMPFILE))
     return -EPERM;
 
   htabkey(&k, path, strlen(path));
