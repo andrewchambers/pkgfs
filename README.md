@@ -10,7 +10,7 @@ so we can safely keep the whole union index in memory.
 
 ## Example 
 
-Mount three 
+Mount three directories in a union.
 
 ```
 $ pkgfs -f -oauto_unmount,kernel_cache ./dir1 ./dir2 ./dir3 ./mnt
